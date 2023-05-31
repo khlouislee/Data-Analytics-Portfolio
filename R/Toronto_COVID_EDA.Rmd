@@ -1,0 +1,116 @@
+---
+title: "Toronto COVID19 Cases Exploratory Data Analysis"
+author: "Kwan Ho (Louis) Lee"
+date: "2023-05-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Introduction
+
+This exercise aims to explore the COVID-19 Cases data across Toronto, the original data set was extracted from the Open Data Portal of City of Toronto: https://open.toronto.ca/dataset/covid-19-cases-in-toronto/. This Exploratory Data Analysis leverages the Tidyverse package for data manipulation and visualization.
+
+### Install and Load Tidyverse Pacakge
+```{r Install tidyverse}
+install.packages("tidyverse",repos = "http://cran.us.r-project.org")
+library("tidyverse")
+```
+
+### Set Working Directory
+```{r Set Working Directory}
+setwd("/Users/lou/Desktop/R Dataset")
+getwd()
+```
+
+### Import Dataset From the Original CSV File
+```{r Obtain Dataset}
+data = read_csv("COVID_YYZ.csv")
+glimpse(data)
+str(data)
+colnames(data)
+head(data)
+```
+
+### Trend of COVID19 Cases in Toronto
+```{r Plot Line Chart}
+# Process data summary
+daily_caseno <- data %>%
+  group_by(Episode_Date) %>%
+  summarise(Daily_new_cases = (count = n()))
+# Convert Data Type of the Episode Date column
+daily_caseno$Episode_Date <- as.Date(daily_caseno$Episode_Date, "%d/%m/%Y")
+# Plot the line chart
+ggplot(data = daily_caseno, mapping = aes(x = Episode_Date, y = Daily_new_cases)) +
+  geom_line() +
+  labs(x = "", y = "No. of Daily New Cases", title = "COVID19 Trend in Toronto", 
+       caption = "Data Source: Toronto Public Health")
+```
+
+### Distribution of COVID19 Cases by Age
+```{r Plot Pie Chart}
+# Replace NA values
+data$Age_Group[is.na(data$Age_Group)] <- "Not Specified"
+# Process data summary
+age_dist <- data %>%
+  group_by(Age_Group) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = round((Count / sum(Count) * 100), 2)) %>%
+  mutate(ypos = cumsum(Percentage) - 0.5 * Percentage + 1)
+# Set the fill colors of the pie chart
+colorgroup <- c("pink", "red", "brown", "orange", "yellow2", "green", "skyblue", "blue", "purple", "grey")
+# Plot the pie chart
+ggplot(data = age_dist, mapping = aes(x = "", y = Count, fill = Age_Group)) +
+  geom_bar(color = "white", stat = "identity", width = 1) +
+  coord_polar("y", start = 180) +
+  theme_void() +
+  scale_fill_manual(values = colorgroup) +
+  geom_text(aes(label = paste0(Percentage, "%")), size = 5, color = "white", 
+            position = position_stack(vjust = 0.6)) +
+  labs(title = "Age Distribution for COVID19 Patients in Toronto", 
+       caption = "Data Source: Toronto Public Health")
+```
+
+### Distribution of COVID19 Cases by Location
+```{r Plot Bar Chart}
+# Process data summary
+location_dist <- data %>%
+  group_by(Neighbourhood_Name) %>%
+  summarise(Count = n()) %>%
+  arrange(-Count)
+# Remove NA rows
+location_dist <- location_dist[-1,]
+location_dist <- head(location_dist, 10)
+# Plot the bar chart
+ggplot(data = location_dist, mapping = aes(x = reorder(Neighbourhood_Name, -Count), y = Count)) +
+  geom_col(fill = "red") +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  labs(x = "Neighbourhood", y = "No. of COVID19 Cases", 
+       title = "Distribution of COVID-19 Cases Across Toronto", caption = "Data Source: Toronto Public Health")
+```
+
+### Distribution of COVID19 Cases by Age and Gender
+```{r Plot Heat Map}
+# Group gender values
+data$Client_Gender[data$Client_Gender == "NOT LISTED, PLEASE SPECIFY" |
+                     data$Client_Gender == "OTHER" |
+                     data$Client_Gender == "TRANS MAN" |
+                     data$Client_Gender == "TRANS WOMAN" |
+                     data$Client_Gender == "TRANSGENDER"] <- "NON-BINARY"
+# Process data summary
+group <- data %>%
+  group_by(Age_Group, Client_Gender) %>%
+  summarise(Count = n(), .groups = "keep")
+# Plot the heat map
+ggplot(data = group, mapping = aes(x = Age_Group, y = Client_Gender, fill = Count)) +
+  geom_tile() + 
+  scale_fill_gradient(low = "yellow", high = "red") +
+  theme_classic() +
+  labs(x = "Age Group", y ="No. of Patient", title = "COVID19 Patient Population by Gender and Age", 
+       caption = "Data Source: Toronto Public Health" ) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1))
+```
+
+  
